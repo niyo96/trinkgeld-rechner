@@ -1,0 +1,55 @@
+# ─── IDE ──────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Angular (app/) ───────────────────────────────────────────────────────────
+app/dist/
+app/tmp/
+app/out-tsc/
+app/node_modules/
+app/.angular/cache/
+app/coverage/
+app/__screenshots__/
+
+# ─── Node ─────────────────────────────────────────────────────────────────────
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+.docker/
+
+# ─── Secrets & Umgebungsvariablen ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ─── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ─── Windows ──────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ─── Linux ────────────────────────────────────────────────────────────────────
+*~
+
+# ─── Test & Coverage ──────────────────────────────────────────────────────────
+app/coverage/
