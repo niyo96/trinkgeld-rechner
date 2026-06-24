@@ -1,0 +1,275 @@
+<input
+  #importInput
+  type="file"
+  accept="application/pdf"
+  style="display:none"
+  (change)="onImportFile($event)"
+/>
+
+<div class="app-container" [formGroup]="form">
+  <header class="app-header">
+    <h1>Trinkgeld-Rechner</h1>
+    <p class="subtitle">Automatische Verteilung nach gearbeiteten Stunden</p>
+  </header>
+
+  <!-- ─── Veranstaltung ─────────────────────────────────────────── -->
+  <mat-card class="event-card">
+    <mat-card-header>
+      <mat-card-title><mat-icon>event</mat-icon> Veranstaltung</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="event-form">
+
+        <mat-form-field appearance="outline" class="field-full">
+          <mat-label>Veranstaltungsname</mat-label>
+          <input matInput formControlName="eventName" placeholder="z.B. Club Night Juni" />
+          <mat-icon matPrefix>label</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline"
+          [class.mat-form-field-invalid]="!!eventDateError()">
+          <mat-label>Startdatum</mat-label>
+          <input matInput type="date" formControlName="startDate" />
+          @if (form.get('startDate')?.invalid && form.get('startDate')?.touched) {
+            <mat-error>Startdatum ist erforderlich.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline"
+          [class.mat-form-field-invalid]="!!eventDateError()">
+          <mat-label>Enddatum</mat-label>
+          <input matInput type="date" formControlName="endDate" />
+          @if (form.get('endDate')?.hasError('required') && form.get('endDate')?.touched) {
+            <mat-error>Enddatum ist erforderlich.</mat-error>
+          }
+          @if (form.get('endDate')?.hasError('endBeforeStart')) {
+            <mat-error>Enddatum liegt vor dem Startdatum.</mat-error>
+          }
+        </mat-form-field>
+
+        @if (eventDateError()) {
+          <div class="event-date-error field-full">
+            <mat-icon>error</mat-icon>
+            {{ eventDateError() }}
+          </div>
+        }
+
+        <mat-form-field appearance="outline">
+          <mat-label>Trinkgeld gesamt (€)</mat-label>
+          <input matInput type="number" min="0" step="0.01" formControlName="totalTip" />
+          <span matTextPrefix>€&nbsp;</span>
+          @if (form.get('totalTip')?.hasError('required') && form.get('totalTip')?.touched) {
+            <mat-error>Trinkgeldbetrag ist erforderlich.</mat-error>
+          }
+          @if (form.get('totalTip')?.hasError('min') || form.get('totalTip')?.hasError('negative')) {
+            <mat-error>Betrag darf nicht negativ sein.</mat-error>
+          }
+        </mat-form-field>
+
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ─── Mitarbeiter ───────────────────────────────────────────── -->
+  <mat-card class="employees-card">
+    <mat-card-header>
+      <mat-card-title><mat-icon>people</mat-icon> Mitarbeiter</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+
+      @if (hasZeroHoursWarning()) {
+        <div class="alert alert-warning">
+          <mat-icon>warning</mat-icon>
+          Alle Nettostunden sind 0 — keine Trinkgeldverteilung möglich.
+        </div>
+      }
+
+      <div formArrayName="employees" class="employees-list">
+        @for (emp of employeesArray.controls; track emp; let i = $index) {
+          @let row = employeeRows()[i];
+          <div
+            [formGroupName]="i"
+            class="employee-row"
+            [class.employee-row--error]="row?.hasError"
+            [class.employee-row--warning]="!row?.hasError && !!row?.breakWarning"
+          >
+            <!-- Header line -->
+            <div class="employee-header">
+              <span class="employee-number">MA {{ i + 1 }}</span>
+              @if (row) {
+                <span class="employee-summary" [class.summary--error]="row.hasError">
+                  @if (row.hasError) {
+                    <mat-icon class="summary-icon--error">error_outline</mat-icon>
+                    Ungültige Zeiten
+                  } @else {
+                    {{ formatHours(row.netHours) }} h
+                    @if (row.tipAmount !== null) {
+                      &nbsp;→&nbsp;<strong>{{ formatEuro(row.tipAmount) }}</strong>
+                    }
+                  }
+                </span>
+              }
+              <button
+                mat-icon-button
+                color="warn"
+                (click)="removeEmployee(i)"
+                matTooltip="Mitarbeiter entfernen"
+                [disabled]="employeesArray.length <= 1"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+
+            <!-- Input fields -->
+            <div class="employee-fields">
+              <mat-form-field appearance="outline" class="field-name">
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" placeholder="z.B. Anna" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="field-time"
+                [class.field-time--error]="row?.hasError">
+                <mat-label>Von</mat-label>
+                <input matInput type="time" formControlName="startTime" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="field-time"
+                [class.field-time--error]="row?.hasError">
+                <mat-label>Bis</mat-label>
+                <input matInput type="time" formControlName="endTime" />
+              </mat-form-field>
+
+              <div class="break-section">
+                <mat-checkbox formControlName="hasBreak" color="primary">Pause</mat-checkbox>
+                @if (emp.get('hasBreak')?.value) {
+                  <div class="break-stepper">
+                    <button mat-icon-button (click)="decrementBreak(i)" type="button">
+                      <mat-icon>remove</mat-icon>
+                    </button>
+                    <span class="break-value">{{ emp.get('breakHours')?.value | number: '1.2-2' }} h</span>
+                    <button mat-icon-button (click)="incrementBreak(i)" type="button">
+                      <mat-icon>add</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Validation messages -->
+            @if (row) {
+              <div class="employee-messages">
+                @if (!row.hasError) {
+                  <span class="calc-item">Brutto: {{ formatHours(row.grossHours) }} h</span>
+                }
+                @if (row.hoursError) {
+                  <div class="validation-msg validation-msg--error">
+                    <mat-icon>error</mat-icon>{{ row.hoursError }}
+                  </div>
+                }
+                @if (row.shiftDateError) {
+                  <div class="validation-msg validation-msg--error">
+                    <mat-icon>error</mat-icon>{{ row.shiftDateError }}
+                  </div>
+                }
+                @if (row.breakWarning) {
+                  <div class="validation-msg validation-msg--warning">
+                    <mat-icon>warning</mat-icon>{{ row.breakWarning }}
+                  </div>
+                }
+              </div>
+            }
+
+            <mat-divider></mat-divider>
+          </div>
+        }
+      </div>
+
+      <button mat-stroked-button color="primary" class="add-btn" (click)="addEmployee()" type="button">
+        <mat-icon>person_add</mat-icon>
+        Mitarbeiter hinzufügen
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ─── Zusammenfassung ───────────────────────────────────────── -->
+  <mat-card class="summary-card">
+    <mat-card-header>
+      <mat-card-title><mat-icon>summarize</mat-icon> Zusammenfassung</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span class="summary-label">Gesamtstunden (Netto)</span>
+          <span class="summary-value">{{ formatHours(totalNetHours()) }} h</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Trinkgeld gesamt</span>
+          <span class="summary-value">
+            {{ form.value.totalTip != null ? formatEuro(form.value.totalTip) : '–' }}
+          </span>
+        </div>
+        @if (totalDistributed() !== null) {
+          <div class="summary-item highlight">
+            <span class="summary-label">Kontrollsumme</span>
+            <span class="summary-value accent">{{ formatEuro(totalDistributed()!) }}</span>
+          </div>
+        }
+      </div>
+
+      @if (employeeRows().length > 0) {
+        <div class="result-table">
+          <div class="result-header">
+            <span>Name</span>
+            <span>Netto-h</span>
+            <span>Anteil</span>
+            <span>Betrag</span>
+          </div>
+          @for (row of employeeRows(); track row; let i = $index) {
+            <div class="result-row" [class.result-row--error]="row.hasError">
+              <span>{{ row.name || ('MA ' + (i + 1)) }}</span>
+              <span>
+                @if (row.hasError) {
+                  <mat-icon class="inline-error-icon" matTooltip="Fehler bei Zeitangabe">error_outline</mat-icon>
+                } @else {
+                  {{ formatHours(row.netHours) }}
+                }
+              </span>
+              <span>
+                {{ (!row.hasError && totalNetHours() > 0) ? ((row.netHours / totalNetHours()) * 100 | number: '1.1-1') + '%' : '–' }}
+              </span>
+              <span class="amount">
+                {{ (!row.hasError && row.tipAmount !== null) ? formatEuro(row.tipAmount) : '–' }}
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ─── Action Bar ────────────────────────────────────────────── -->
+  <div class="action-bar">
+    <button mat-stroked-button color="warn" (click)="reset()" type="button">
+      <mat-icon>restart_alt</mat-icon>
+      Zurücksetzen
+    </button>
+    <div class="action-bar-right">
+      <button mat-stroked-button (click)="triggerImport()" type="button"
+        matTooltip="PDF mit eingebetteten Daten importieren">
+        <mat-icon>upload_file</mat-icon>
+        PDF importieren
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="exportPdf()"
+        type="button"
+        [disabled]="isExporting() || !form.value.startDate"
+        matTooltip="Zusammenfassung als PDF mit eingebetteten Daten speichern"
+      >
+        <mat-icon>picture_as_pdf</mat-icon>
+        {{ isExporting() ? 'Erstelle PDF…' : 'Als PDF speichern' }}
+      </button>
+    </div>
+  </div>
+</div>

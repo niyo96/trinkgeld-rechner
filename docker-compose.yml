@@ -1,0 +1,7 @@
+services:
+  trinkgeld-rechner:
+    build: .
+    image: trinkgeld-rechner:latest
+    ports:
+      - "80:80"
+    restart: unless-stopped
