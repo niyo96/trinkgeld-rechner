@@ -23,8 +23,12 @@ jobs:
         working-directory: app
 
       - name: Run tests
-        run: npx ng test --no-watch
+        run: npx ng test --no-watch --reporters=json --output-file=test-results.json --reporters=verbose
         working-directory: app
+
+      - name: Generate test summary
+        if: always()
+        run: node .github/scripts/generate-test-summary.mjs app/test-results.json >> $GITHUB_STEP_SUMMARY
 
       - name: Production build
         run: npx ng build --configuration production
