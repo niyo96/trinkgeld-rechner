@@ -1,4 +1,7 @@
+
 # Trinkgeld-Rechner
+
+![App Status](https://github.com/niyo96/trinkgeld-rechner/actions/workflows/status.yml/badge.svg)
 
 Web-App zur automatischen Verteilung von Trinkgeld nach gearbeiteten Stunden — für Nachtclubs und ähnliche Veranstaltungsbetriebe.
 
